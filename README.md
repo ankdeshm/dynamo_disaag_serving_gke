@@ -68,14 +68,14 @@ Once the deployment completes successfully, you can move on to configure your en
 
 With the Dynamo platform installed, the next phase focuses on deploying the Llama 3.1 70B model itself.
 
-➡️ **[Continue to Phase 5: Model Deployment and Validation](05-model-deployment.md)**
+➡️ **[Continue to Phase 5: Model Deployment](05-model-deployment.md)**
 
 
 ## Phase 6
 
 Once the model is deployed, you can run a a few queries to test the deployment as well as run the benchmarking script to compare the performance.
 
-➡️ **[Continue to Phase 6: Benchmarking and Validation](06-benchmarking-validation.md)**
+➡️ **[Continue to Phase 6: Validation & Benchmark](06-benchmarking-validation.md)**
 
 
 
