@@ -17,8 +17,8 @@ The deployment is broken into five logical, sequential phases. **Please ensure y
 | **Phase 2: Cloud Infrastructure** | Configure your Google Cloud Project, create Storage Buckets, and set up Artifact Registry. | 5 min | [02-google-cloud-infra.md](02-google-cloud-infra.md) |
 | **Phase 3: Cluster Deployment** | Deploy the A3 Ultra GKE Cluster using the custom cluster-toolkit blueprint. | 15-20 min | [03-cluster-deployment.md](03-cluster-deployment.md) |
 | **Phase 4: Dynamo Platform** | Export environment variables, set up Kubernetes Secrets (NGC, HF), and install the Dynamo Operator and Platform via Helm. | 5 min | [04-dynamo-secrets-and-platform.md](04-dynamo-secrets-and-platform.md) |
-| **Phase 5: Model Deployment** | Apply the Dynamo model YAML and monitor pod status. | 15-20 min  | [05-model-deployment.md](https://www.google.com/search?q=05-model-deployment.md) |
-| **Phase 6: Validation & Benchmark** | Run end-to-end inference tests and performance benchmarks. | 10-15 min  | [06-benchmarking-validation.md](https://www.google.com/search?q=06-benchmarking-validation.md) |
+| **Phase 5: Model Deployment** | Apply the Dynamo model YAML and monitor pod status. | 15-20 min  | [05-model-deployment.md](05-model-deployment.md) |
+| **Phase 6: Validation & Benchmark** | Run end-to-end inference tests and performance benchmarks. | 10-15 min  | [06-benchmarking-validation.md](06-benchmarking-validation.md) |
 
 
 ---
@@ -60,7 +60,7 @@ With your cloud infrastructure configured, you are now ready to deploy the speci
 
 Once the deployment completes successfully, you can move on to configure your environment and install the Dynamo platform components.
 
-➡️ **[Continue to Phase 4: Dynamo Platform Configuration](https://www.google.com/search?q=04-dynamo-secrets-and-platform.md)**
+➡️ **[Continue to Phase 4: Dynamo Platform Configuration](04-dynamo-secrets-and-platform.md)**
 
 
 
@@ -68,7 +68,14 @@ Once the deployment completes successfully, you can move on to configure your en
 
 With the Dynamo platform installed, the next phase focuses on deploying the Llama 3.1 70B model itself.
 
-➡️ **[Continue to Phase 5: Model Deployment and Validation](https://www.google.com/search?q=05-model-deployment-and-validation.md)**
+➡️ **[Continue to Phase 5: Model Deployment and Validation](05-model-deployment.md)**
+
+
+## Phase 6
+
+Once the model is deployed, you can run a a few queries to test the deployment as well as run the benchmarking script to compare the performance.
+
+➡️ **[Continue to Phase 6: Benchmarking and Validation](06-benchmarking-validation.md)**
 
 
 
