@@ -78,7 +78,7 @@ kubectl logs -f -n dynamo-cloud $FRONTEND_POD
 
 -----
 
-## 3\. Troubleshooting: Empty Model List
+### 3\. Troubleshooting: Empty Model List
 
 If all pods are `Running` and the logs look clean, but you still cannot query the model, you might encounter the "Empty Model List" symptom.
 
@@ -92,7 +92,7 @@ curl http://localhost:8000/v1/models
 **Cause:**
 The Dynamo Operator can sometimes fail to write the routing table to its Etcd store after a redeployment, meaning the Frontend finds an empty route list.
 
-### The Fix: Force Re-Synchronization
+#### The Fix: Force Re-Synchronization
 
 Follow these steps to force the Operator to re-reconcile and register the workers.
 
