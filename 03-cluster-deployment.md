@@ -4,7 +4,7 @@ In this phase, you will use the **Google Cloud Cluster Toolkit** binary (`gclust
 
 ### 1\. Download and Build the Toolkit
 
-Assuming you ahve already cloned the cluster toolkit repo during your [local environment setup]():
+Assuming you ahve already cloned the cluster toolkit repo during your [local environment setup](https://github.com/ankdeshm/dynamo_disaag_serving_gke/blob/main/01-local-environment-setup.md#9-set-up-google-cloud-cluster-toolkit):
 
 ```bash
 # Navigate to the cluster toolkit directory
