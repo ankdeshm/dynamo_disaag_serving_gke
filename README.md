@@ -53,5 +53,12 @@ With your cloud infrastructure configured, you are now ready to deploy the speci
 ➡️ **[Continue to Phase 3: Cluster Deployment (Toolkit)](03-cluster-deployment.md)**
 
 
+## Phase 4
+
+Once the deployment completes successfully, you can move on to configure your environment and install the Dynamo platform components.
+
+➡️ **[Continue to Phase 4: Dynamo Platform Configuration](https://www.google.com/search?q=04-dynamo-secrets-and-platform.md)**
+
+
 
 
