@@ -1,4 +1,4 @@
-## 📝 Phase 5: Model Deployment and Validation
+## 📝 Phase 5: Model Deployment
 
 This is the final phase of the deployment. Here, you will deploy the Llama 3.1 70B model using the Dynamo Disaggregated Architecture (split Prefill and Decode workers) and then validate that the system is fully operational.
 
