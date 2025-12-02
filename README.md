@@ -1,5 +1,4 @@
 # NVIDIA Dynamo Disaggregated Serving on Google Cloud
-### Llama 3.1 70B on A3 Ultra
 
 **Authors: Ankita Deshmukh & Zhenzhen Tan**
 
