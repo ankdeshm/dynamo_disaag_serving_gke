@@ -78,11 +78,12 @@ Once the model is deployed, you can run a a few queries to test the deployment a
 ➡️ **[Continue to Phase 6: Validation & Benchmark](06-benchmarking-validation.md)**
 
 
+
 ## 📈 Performance Analysis
 
 If you are interested in the detailed results and analysis comparing the tail latency benefits of Dynamo Disaggregated Serving versus a standard vLLM Monolithic setup on the A3 Ultra node, please see the dedicated results page:
 
-➡️ **[View Performance Comparison and Analysis](07-performance-comparison-and-analysis.md)**
+➡️ **[View Performance Comparison and Analysis](07-performance-comparison-analysis.md)**
 
 
 
