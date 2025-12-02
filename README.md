@@ -13,9 +13,9 @@ The deployment is broken into five logical, sequential phases. **Please ensure y
 
 | Phase | Description | Estimated Time | Guide Link |
 | :--- | :--- | :--- | :--- |
-| **Phase 1: Local Setup** | Install required tools: Terraform, Packer, Go, and `make`. | 5-10 min | [01-local-environment-setup.md](01-local-environment-setup.md) |
+| **Phase 1: Local Setup** | Install required tools: Terraform, Packer, Go, Git, and `make` and set up cluster toolkit | 5-10 min | [01-local-environment-setup.md](01-local-environment-setup.md) |
 | **Phase 2: Cloud Infrastructure** | Configure your Google Cloud Project, create Storage Buckets, and set up Artifact Registry. | 5 min | [02-google-cloud-infra.md](02-google-cloud-infra.md) |
-| **Phase 3: Cluster Deployment** | Deploy the A3 Ultra GKE Cluster using the provided cluster-toolkit blueprint. | 15-20 min | [03-cluster-deployment.md](03-cluster-deployment.md) |
+| **Phase 3: Cluster Deployment** | Deploy the A3 Ultra GKE Cluster using the custom cluster-toolkit blueprint. | 15-20 min | [03-cluster-deployment.md](03-cluster-deployment.md) |
 | **Phase 4: Dynamo Platform** | Export environment variables, set up Kubernetes Secrets (NGC, HF), and install the Dynamo Operator and Platform via Helm. | 5 min | [04-dynamo-secrets-and-platform.md](04-dynamo-secrets-and-platform.md) |
 | **Phase 5: Model Deployment** | Apply the disaggregated model YAML, monitor pod status, and run the initial end-to-end inference validation. | 15-20 min | [05-model-deployment-and-validation.md](05-model-deployment-and-validation.md) |
 
