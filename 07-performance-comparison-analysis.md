@@ -5,7 +5,6 @@ This section presents the results of two benchmark tests comparing the performan
 > **For Reproducibility:** To compare against the monolithic (Standard) vLLM results shown here, you can use the corresponding deployment manifest. This manifest provisions vLLM directly on the same A3 Ultra cluster without the Dynamo operator or split architecture.
 >
 > ➡️ **Standard vLLM Deployment Manifest:** [llama31_70b_standard_vllm.yaml](llama31_70b_standard_vllm.yaml) 
-> *(Note: You must apply this manifest using `kubectl apply -f ...` instead of the Dynamo manifest.)*
 
 #### Test Setup
 
