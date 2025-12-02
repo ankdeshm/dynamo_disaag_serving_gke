@@ -1,0 +1,239 @@
+apiVersion: nvidia.com/v1alpha1
+kind: DynamoGraphDeployment
+metadata:
+  name: llama3-disagg
+  namespace: dynamo-cloud
+spec:
+  services:
+    Frontend:
+      dynamoNamespace: llama3-disagg
+      envFromSecret: hf-secret
+      componentType: frontend
+      replicas: 1
+      resources: 
+        requests:
+          cpu: "2"
+          memory: "8Gi"
+        limits:
+          cpu: "4"
+          memory: "16Gi"
+      extraPodSpec:
+        imagePullSecrets:
+          - name: nvcr-secret
+        mainContainer:
+          image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:0.6.1
+          command: ["python3"]
+          args: ["-m", "dynamo.frontend"]
+          env:
+          - name: HF_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: hf-secret
+                key: hf_api_token
+          
+    VllmDecodeWorker:
+      dynamoNamespace: llama3-disagg
+      envFromSecret: hf-secret
+      componentType: worker
+      replicas: 1
+      sharedMemory:
+        size: 200Gi
+      resources:
+        requests:
+          cpu: "48"
+          memory: "500Gi"
+          gpu: "4"
+        limits:
+          cpu: "48"
+          memory: "500Gi"
+          gpu: "4"
+      extraPodSpec:
+        imagePullSecrets:
+          - name: nvcr-secret
+        nodeSelector:
+          cloud.google.com/gke-accelerator: "nvidia-h200-141gb"
+        tolerations:
+          - key: "nvidia.com/gpu"
+            operator: "Equal"
+            value: "present"
+            effect: "NoSchedule"
+        
+        initContainers:
+        # 1. NCCL Installer
+        - name: nccl-plugin-installer
+          image: us-docker.pkg.dev/gce-ai-infra/gpudirect-gib/nccl-plugin-gib:v1.0.6
+          imagePullPolicy: Always
+          args:
+          - |
+            set -ex
+            /scripts/container_entry.sh install --install-nccl
+            cp -R /var/lib/gib/lib64/. /target/usr/local/gib/lib64
+            cp -R /var/lib/gib/. /target/usr/local/gib
+          command: ["/bin/sh", "-c"]
+          volumeMounts:
+          - mountPath: /target/usr/local/gib
+            name: gib
+
+        # 2. Model DOWNLOADER (Skips if exists)
+        - name: model-downloader
+          image: python:3.10-slim
+          command: ["/bin/bash", "-c"]
+          args:
+          - |
+            MODEL_ID="meta-llama/Meta-Llama-3.1-70B-Instruct"
+            LOCAL_DIR="/ssd/meta-llama/Meta-Llama-3.1-70B-Instruct"
+            if [ -f "${LOCAL_DIR}/config.json" ]; then exit 0; fi
+            pip install huggingface_hub
+            python3 -c "import os; from huggingface_hub import snapshot_download; snapshot_download(repo_id='${MODEL_ID}', local_dir='${LOCAL_DIR}', token=os.environ['HF_TOKEN'])"
+          env:
+          - name: HF_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: hf-secret
+                key: hf_api_token
+          volumeMounts:
+          - name: local-ssd
+            mountPath: /ssd
+
+        volumes:
+        - name: gib
+          emptyDir: {}
+        - name: local-ssd
+          hostPath:
+            path: /mnt/stateful_partition/kube-ephemeral-ssd
+
+        mainContainer:
+          image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:0.6.1
+          securityContext:
+            privileged: true
+          workingDir: /workspace/examples/backends/vllm
+          volumeMounts:
+            - name: gib
+              mountPath: /usr/local/gib
+            - name: local-ssd
+              mountPath: /ssd
+          command: ["/bin/bash", "-c"]
+          args:
+          - |
+            # Setup NCCL Environment from the plugin
+            export NCCL_PLUGIN_PATH=/usr/local/gib/lib64
+            export LD_LIBRARY_PATH=/usr/local/gib/lib64:/usr/local/nvidia/lib64:$LD_LIBRARY_PATH
+            export NCCL_INIT_SCRIPT="/usr/local/gib/scripts/set_nccl_env.sh"
+            
+            if [[ -n "${NCCL_INIT_SCRIPT}" ]]; then source ${NCCL_INIT_SCRIPT}; /sbin/ldconfig; fi
+
+            # Force vLLM to use the system NCCL (GIB) and enable Debug logging
+            export VLLM_NCCL_SO_PATH=/usr/local/gib/lib64/libnccl.so.2
+            export NCCL_DEBUG=INFO
+
+            python3 -m dynamo.vllm \
+              --model /ssd/meta-llama/Meta-Llama-3.1-70B-Instruct \
+              --served-model-name meta-llama/Meta-Llama-3.1-70B-Instruct \
+              --tensor-parallel-size 4 \
+              --gpu-memory-utilization 0.6 \
+              --trust-remote-code \
+              --download-dir /ssd/meta-llama/Meta-Llama-3.1-70B-Instruct \
+              --disable-log-requests
+
+    VllmPrefillWorker:
+      dynamoNamespace: llama3-disagg
+      envFromSecret: hf-secret
+      componentType: worker
+      replicas: 1
+      sharedMemory:
+        size: 200Gi
+      resources:
+        requests:
+          cpu: "48"
+          memory: "500Gi"
+          gpu: "4"
+        limits:
+          cpu: "48"
+          memory: "500Gi"
+          gpu: "4"
+      extraPodSpec:
+        imagePullSecrets:
+          - name: nvcr-secret
+        nodeSelector:
+          cloud.google.com/gke-accelerator: "nvidia-h200-141gb"
+        tolerations:
+          - key: "nvidia.com/gpu"
+            operator: "Equal"
+            value: "present"
+            effect: "NoSchedule"
+        
+        initContainers:
+        - name: nccl-plugin-installer
+          image: us-docker.pkg.dev/gce-ai-infra/gpudirect-gib/nccl-plugin-gib:v1.0.6
+          imagePullPolicy: Always
+          args:
+          - |
+            set -ex
+            /scripts/container_entry.sh install --install-nccl
+            cp -R /var/lib/gib/lib64/. /target/usr/local/gib/lib64
+            cp -R /var/lib/gib/. /target/usr/local/gib
+          command: ["/bin/sh", "-c"]
+          volumeMounts:
+          - mountPath: /target/usr/local/gib
+            name: gib
+
+        - name: model-downloader
+          image: python:3.10-slim
+          command: ["/bin/bash", "-c"]
+          args:
+          - |
+            MODEL_ID="meta-llama/Meta-Llama-3.1-70B-Instruct"
+            LOCAL_DIR="/ssd/meta-llama/Meta-Llama-3.1-70B-Instruct"
+
+            if [ -f "${LOCAL_DIR}/config.json" ]; then exit 0; fi
+
+            pip install huggingface_hub
+            python3 -c "import os; from huggingface_hub import snapshot_download; snapshot_download(repo_id='${MODEL_ID}', local_dir='${LOCAL_DIR}', token=os.environ['HF_TOKEN'])"
+          env:
+          - name: HF_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: hf-secret
+                key: hf_api_token
+          volumeMounts:
+          - name: local-ssd
+            mountPath: /ssd
+
+        volumes:
+        - name: gib
+          emptyDir: {}
+        - name: local-ssd
+          hostPath:
+            path: /mnt/stateful_partition/kube-ephemeral-ssd
+
+        mainContainer:
+          image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:0.6.1
+          # Added privileged security context
+          securityContext:
+            privileged: true
+          workingDir: /workspace/examples/backends/vllm
+          volumeMounts:
+            - name: gib
+              mountPath: /usr/local/gib
+            - name: local-ssd
+              mountPath: /ssd
+          command: ["/bin/bash", "-c"]
+          args:
+          - |
+            export NCCL_PLUGIN_PATH=/usr/local/gib/lib64
+            export LD_LIBRARY_PATH=/usr/local/gib/lib64:/usr/local/nvidia/lib64:$LD_LIBRARY_PATH
+            export NCCL_INIT_SCRIPT="/usr/local/gib/scripts/set_nccl_env.sh"
+            
+            if [[ -n "${NCCL_INIT_SCRIPT}" ]]; then source ${NCCL_INIT_SCRIPT}; /sbin/ldconfig; fi
+            export VLLM_NCCL_SO_PATH=/usr/local/gib/lib64/libnccl.so.2
+            export NCCL_DEBUG=INFO
+            
+            python3 -m dynamo.vllm \
+              --model /ssd/meta-llama/Meta-Llama-3.1-70B-Instruct \
+              --served-model-name meta-llama/Meta-Llama-3.1-70B-Instruct \
+              --tensor-parallel-size 4 \
+              --gpu-memory-utilization 0.6 \
+              --trust-remote-code \
+              --download-dir /ssd/meta-llama/Meta-Llama-3.1-70B-Instruct \
+              --disable-log-requests \
+              --is-prefill-worker
