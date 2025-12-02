@@ -1,0 +1,136 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llama3-standard
+  namespace: dynamo-cloud
+  labels:
+    app: llama3-standard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: llama3-standard
+  template:
+    metadata:
+      labels:
+        app: llama3-standard
+    spec:
+      # 1. Use the same high-performance Node
+      nodeSelector:
+        cloud.google.com/gke-accelerator: "nvidia-h200-141gb"
+      tolerations:
+      - key: "nvidia.com/gpu"
+        operator: "Equal"
+        value: "present"
+        effect: "NoSchedule"
+      
+      volumes:
+        - name: gib
+          emptyDir: {}
+        - name: local-ssd
+          hostPath:
+            path: /mnt/stateful_partition/kube-ephemeral-ssd
+        - name: shared-memory
+          emptyDir:
+            medium: "Memory"
+            sizeLimit: 200Gi
+
+      initContainers:
+      # 2. Keep the exact same NCCL setup
+      - name: nccl-plugin-installer
+        image: us-docker.pkg.dev/gce-ai-infra/gpudirect-gib/nccl-plugin-gib:v1.0.6
+        imagePullPolicy: Always
+        args:
+        - |
+          set -ex
+          /scripts/container_entry.sh install --install-nccl
+          cp -R /var/lib/gib/lib64/. /target/usr/local/gib/lib64
+          cp -R /var/lib/gib/. /target/usr/local/gib
+        command: ["/bin/sh", "-c"]
+        volumeMounts:
+        - mountPath: /target/usr/local/gib
+          name: gib
+
+      # 3. Keep the exact same Model Downloader
+      - name: model-downloader
+        image: python:3.10-slim
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          MODEL_ID="meta-llama/Meta-Llama-3.1-70B-Instruct"
+          LOCAL_DIR="/ssd/meta-llama/Meta-Llama-3.1-70B-Instruct"
+          if [ -f "${LOCAL_DIR}/config.json" ]; then exit 0; fi
+          pip install huggingface_hub
+          python3 -c "import os; from huggingface_hub import snapshot_download; snapshot_download(repo_id='${MODEL_ID}', local_dir='${LOCAL_DIR}', token=os.environ['HF_TOKEN'])"
+        env:
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hf-secret
+              key: hf_api_token
+        volumeMounts:
+        - name: local-ssd
+          mountPath: /ssd
+
+      containers:
+        - name: vllm-server
+          # 4. Use the SAME image for fairness
+          image: "nvcr.io/nvidia/ai-dynamo/vllm-runtime:0.6.1" 
+          securityContext:
+            privileged: true
+          env:
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-secret
+                  key: hf_api_token
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              # Setup NCCL Environment (Same as Dynamo)
+              export NCCL_PLUGIN_PATH=/usr/local/gib/lib64
+              export LD_LIBRARY_PATH=/usr/local/gib/lib64:/usr/local/nvidia/lib64:$LD_LIBRARY_PATH
+              source /usr/local/gib/scripts/set_nccl_env.sh
+              export VLLM_NCCL_SO_PATH=/usr/local/gib/lib64/libnccl.so.2
+              export NCCL_DEBUG=INFO
+
+              # 5. Launch Standard vLLM (OpenAI API Server)
+              # Note: --tensor-parallel-size 8 uses ALL GPUs
+              python3 -m vllm.entrypoints.openai.api_server \
+                --model /ssd/meta-llama/Meta-Llama-3.1-70B-Instruct \
+                --served-model-name meta-llama/Meta-Llama-3.1-70B-Instruct \
+                --tensor-parallel-size 8 \
+                --trust-remote-code \
+                --download-dir /ssd/meta-llama/Meta-Llama-3.1-70B-Instruct \
+                --disable-log-requests \
+                --gpu-memory-utilization 0.9 \
+                --port 8000
+
+          resources:
+            limits:
+              nvidia.com/gpu: 8
+            requests:
+              nvidia.com/gpu: 8
+          
+          volumeMounts:
+            - name: gib
+              mountPath: /usr/local/gib
+            - name: local-ssd
+              mountPath: /ssd
+            - name: shared-memory
+              mountPath: /dev/shm
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llama3-standard-service
+  namespace: dynamo-cloud
+spec:
+  selector:
+    app: llama3-standard
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+  type: ClusterIP
