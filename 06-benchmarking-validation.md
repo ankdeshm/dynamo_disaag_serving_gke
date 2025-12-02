@@ -58,22 +58,4 @@ kubectl exec -it -n dynamo-cloud $FRONTEND_POD -- /bin/bash -c '
 '
 ```
 
-### 3\. Interpreting the Results 📊
-
-The primary metric where **Dynamo** shines is the **Time Per Output Token (TPOT)**, especially at the **P99 (Tail Latency)**. This reflects the user experience of text streaming.
-
-| Metric | Standard vLLM (Monolithic 8-GPU) | Dynamo Disaggregated (Split 4+4 GPUs) | Key Insight |
-| :--- | :--- | :--- | :--- |
-| **Total Duration** | 12 min 57s (777s) | 40 min 49s (2449s) | Standard wins on pure speed due to 8 GPUs on Prefill vs 4 GPUs on Prefill for Dynamo. |
-| **Mean TTFT** (Wait Time) | 325 sec | 1,036 sec | Dynamo's smaller Prefill GPU count causes a massive queue buildup (TTFT loss). |
-| **P99 TPOT** (Tail Latency) | **1,106.83 ms** | **100.46 ms** | **Dynamo Wins 11x.** This is the critical user experience metric. |
-
-#### Analysis: Why the Tail Latency Win Matters
-
-The **P99 TPOT of 1,106 ms** for the Standard server means that for 1% of the users, the text generation **froze for over 1 full second** repeatedly. This is caused by new 8K-token requests interrupting the active text generation (Head-of-Line Blocking).
-
-The **P99 TPOT of 100 ms** for Dynamo means the text generation remained silky smooth. The Decode Worker was completely isolated and continued serving active users without interruption, regardless of the Prefill Worker drowning in 8K-token prompts.
-
-**Conclusion:** Dynamo is the better candidate if **User Experience is King** and you expect **mixed workloads** (long RAG inputs mixed with short chat queries).
-
 -----
