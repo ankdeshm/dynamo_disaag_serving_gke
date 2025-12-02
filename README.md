@@ -62,4 +62,12 @@ Once the deployment completes successfully, you can move on to configure your en
 
 
 
+## Phase 5
+
+With the Dynamo platform installed, the next phase focuses on deploying the Llama 3.1 70B model itself.
+
+➡️ **[Continue to Phase 5: Model Deployment and Validation](https://www.google.com/search?q=05-model-deployment-and-validation.md)**
+
+
+
 
