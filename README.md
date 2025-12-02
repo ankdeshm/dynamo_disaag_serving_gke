@@ -8,7 +8,7 @@ The guide focuses on deploying the **Llama 3.1 70B Instruct** model using a spli
 
 ## 🗺️ Guide Structure and Deployment Phases
 
-The deployment is broken into five logical, sequential phases. **Please ensure you complete the steps in order.**
+The deployment is broken into six logical, sequential phases. **Please ensure you complete the steps in order.**
 
 | Phase | Description | Estimated Time | Guide Link |
 | :--- | :--- | :--- | :--- |
