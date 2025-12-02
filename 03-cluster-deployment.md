@@ -1,6 +1,7 @@
 ## 📝 Phase 3: Cluster Deployment (Toolkit)
 
-In this phase, you will use the **Google Cloud Cluster Toolkit** binary (`gcluster`) to deploy the GKE cluster configured for NVIDIA Dynamo. This blueprint is specifically designed to provision the necessary A3 Ultra GPU nodes and networking for high-performance AI workloads.
+In this phase, you will use the **Google Cloud Cluster Toolkit** binary (`gcluster`) to deploy the GKE cluster configured for NVIDIA Dynamo. We will be using a custom blueprint (`gke-a3-ultragpu-dynamo.yaml`) that is pre-tuned for Disaggregated Serving on A3 Ultra nodes, including the necessary configurations for Flex-Start/DWS.
+
 
 ### 1\. Download and Build the Toolkit
 
@@ -14,11 +15,24 @@ cd cluster-toolkit
 make
 ```
 
-### 2\. Deploy the A3 Ultra Flex-Start Blueprint
+### 2\. Add and Inspect the Custom Dynamo Blueprint
+Because we are using a blueprint customized for the Disaggregated Worker Service (DWS) and Flex-Start features, you must place the custom YAML file in the correct directory.
 
-The deployment command uses a pre-configured blueprint (`gke-a3-ultragpu-dynamo.yaml`) that defines the necessary A3 Ultra node pools (8x H200-141GB GPUs) and cluster settings required for Dynamo.
+```bash
+# Download/copy the custom YAML into the examples directory
+wget <URL_TO_YOUR_CUSTOM_YAML> -O examples/gke-a3-ultragpu/gke-a3-ultragpu-dynamo.yaml
 
-You will need to replace the placeholder variables (e.g., `CLUSTER_NAME`, `PROJECT_ID`, etc.) with the values you decided on in Phase 2.
+# Inspect the file content
+# It is recommended to quickly inspect the file to ensure the correct accelerator 
+# type (nvidia-h200-141gb) and pool configurations are defined.
+cat examples/gke-a3-ultragpu/gke-a3-ultragpu-dynamo.yaml
+```
+
+### 3\. Deploy the A3 Ultra Flex-Start Blueprint
+
+Now, run the deployment command. The Cluster Toolkit will use the custom YAML you just placed to provision the GKE cluster. We will pass all required environment-specific values as variables (`--vars`).
+
+You will need to replace the placeholder variables with your specific configuration values.
 
 ```bash
 # --- VARIABLES TO REPLACE ---
