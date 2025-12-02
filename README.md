@@ -39,9 +39,18 @@ Begin the deployment by setting up your local environment:
 ➡️ **[Continue to Phase 1: Local Environment Setup](01-local-environment-setup.md)**
 
 ### Phase 2
+
 Once your local environment is ready, move on to setting up your Google Cloud infrastructure.
 
 ➡️ **[Continue to Phase 2: Google Cloud Infrastructure]((02-google-cloud-infra.md))**
+
+
+
+## Phase 3
+
+With your cloud infrastructure configured, you are now ready to deploy the specialized GKE cluster.
+
+➡️ **[Continue to Phase 3: Cluster Deployment (Toolkit)](03-cluster-deployment.md)**
 
 
 
