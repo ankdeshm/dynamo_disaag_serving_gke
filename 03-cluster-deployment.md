@@ -19,12 +19,12 @@ make
 Because we are using a blueprint customized for the Disaggregated Worker Service (DWS) and Flex-Start features, you must place the custom YAML file in the correct directory.
 
 ```bash
+
 # Download/copy the custom YAML into the examples directory
-wget <URL_TO_YOUR_CUSTOM_YAML> -O examples/gke-a3-ultragpu/gke-a3-ultragpu-dynamo.yaml
+wget https://raw.githubusercontent.com/ankdeshm/dynamo_disaag_serving_gke/main/gke-a3-ultragpu-dynamo.yaml -O examples/gke-a3-ultragpu/gke-a3-ultragpu-dynamo.yaml
 
 # Inspect the file content
-# It is recommended to quickly inspect the file to ensure the correct accelerator 
-# type (nvidia-h200-141gb) and pool configurations are defined.
+# It is recommended to quickly inspect the file to ensure the configurations are defined.
 cat examples/gke-a3-ultragpu/gke-a3-ultragpu-dynamo.yaml
 ```
 
