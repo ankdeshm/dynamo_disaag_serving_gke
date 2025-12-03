@@ -28,7 +28,7 @@ Before starting Phase 1, ensure you have:
 
 * **A Google Cloud Project** with billing enabled and the necessary quotas for A3 Ultra nodes.
 * **Access to the Llama 3.1 70B Model** on Hugging Face (a **gated model**).
-* **A valid NGC API Key** for pulling NVIDIA's core images.
+* [**A valid NGC API Key**](https://docs.nvidia.com/ai-enterprise/deployment/spark-rapids-accelerator/latest/appendix-ngc.html) for pulling NVIDIA's core images.
 * **A valid Hugging Face Token (`HF_TOKEN`)** for model downloads.
 
 ---
