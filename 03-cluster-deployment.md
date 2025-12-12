@@ -1,4 +1,4 @@
-## 📝 Phase 3: Cluster Deployment (Toolkit)
+## Phase 3: Cluster Deployment (Toolkit)
 
 In this phase, you will use the [Google Cloud Cluster Toolkit](https://github.com/GoogleCloudPlatform/cluster-toolkit?tab=readme-ov-file) binary (`gcluster`) to deploy the GKE cluster configured for NVIDIA Dynamo. We will be using a custom blueprint (`gke-a3-ultragpu-dynamo.yaml`) that is pre-tuned for Disaggregated Serving on A3 Ultra nodes, including the necessary configurations for Flex-Start/DWS.
 
