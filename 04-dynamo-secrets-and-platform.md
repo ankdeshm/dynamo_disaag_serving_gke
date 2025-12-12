@@ -1,4 +1,4 @@
-## 📝 Phase 4: Dynamo Platform Configuration
+## Phase 4: Dynamo Platform Configuration
 
 This phase prepares the GKE environment by setting necessary variables, connecting to the cluster, creating the required namespace, and deploying the core Dynamo platform components (Operator and Control Plane).
 
