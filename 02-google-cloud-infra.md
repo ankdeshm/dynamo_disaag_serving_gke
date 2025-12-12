@@ -1,5 +1,5 @@
 
-## 📝 Phase 2: Google Cloud Infrastructure
+## Phase 2: Google Cloud Infrastructure
 
 This phase configures your Google Cloud project, creates necessary storage buckets, and sets up Artifact Registry to host your Docker images.
 
