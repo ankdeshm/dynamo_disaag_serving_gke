@@ -80,9 +80,9 @@ Once the model is deployed, you can run a a few queries to test the deployment a
 
 ## 📈 Performance Analysis
 
-If you are interested in the detailed results and analysis comparing the tail latency benefits of [Dynamo Disaggregated Serving](llama31_70b_dynamo_a3u.yaml) versus a standard [vLLM Monolithic setup](llama31_70b_standard_vllm.yaml) on the A3 Ultra node, please see the dedicated results page:
+If you are interested in the detailed results and analysis of [Dynamo Disaggregated Serving](llama31_70b_dynamo_a3u.yaml) on the A3 Ultra node, please see the dedicated results page:
 
-➡️ **[View Performance Comparison and Analysis](07-performance-comparison-analysis.md)**
+➡️ **[View Performance Analysis](07-performance-comparison-analysis.md)**
 
 
 
