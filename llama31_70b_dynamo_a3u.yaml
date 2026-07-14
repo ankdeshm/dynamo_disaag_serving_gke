@@ -52,11 +52,27 @@ spec:
           - name: nvcr-secret
         nodeSelector:
           cloud.google.com/gke-accelerator: "nvidia-h200-141gb"
+        # NEW: Added affinity for spot instance preferences
+        affinity:
+          nodeAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                - key: cloud.google.com/gke-spot
+                  operator: In
+                  values: ["true"]
+        # CHANGED: Updated tolerations for spot instance interruptions
         tolerations:
           - key: "nvidia.com/gpu"
             operator: "Equal"
             value: "present"
             effect: "NoSchedule"
+          - key: "cloud.google.com/gke-preemptible"  # NEW: For spot interruption handling
+            operator: "Equal"
+            value: "true"
+            effect: "NoExecute"
+            tolerationSeconds: 30  # NEW: 30 seconds to gracefully shutdown
         
         initContainers:
         # 1. NCCL Installer
@@ -156,11 +172,27 @@ spec:
           - name: nvcr-secret
         nodeSelector:
           cloud.google.com/gke-accelerator: "nvidia-h200-141gb"
+        # NEW: Added affinity for spot instance preferences
+        affinity:
+          nodeAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                - key: cloud.google.com/gke-spot
+                  operator: In
+                  values: ["true"]
+        # CHANGED: Updated tolerations for spot instance interruptions
         tolerations:
           - key: "nvidia.com/gpu"
             operator: "Equal"
             value: "present"
             effect: "NoSchedule"
+          - key: "cloud.google.com/gke-preemptible"  # NEW: For spot interruption handling
+            operator: "Equal"
+            value: "true"
+            effect: "NoExecute"
+            tolerationSeconds: 30  # NEW: 30 seconds to gracefully shutdown
         
         initContainers:
         - name: nccl-plugin-installer
