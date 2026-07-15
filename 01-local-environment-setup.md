@@ -24,7 +24,7 @@ Check that a Python 3 release of pip is installed by running pip3. If pip3 is no
 ### 8. Install Make
 ```bash
 # for debian/ubuntu
-apt-get -y install make
+sudo apt-get -y install make
 
 # for CentOS/RHEL
 yum install -y make
