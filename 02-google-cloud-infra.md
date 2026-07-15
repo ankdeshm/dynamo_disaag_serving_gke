@@ -12,7 +12,7 @@ Set your active project and create the Cloud Storage buckets. These buckets are 
 ```bash
 # 1. Set your Project ID
 # Replace PROJECT_ID with your actual Google Cloud Project ID
-gcloud config set project PROJECT_ID
+gcloud config set project <PROJECT_ID>
 
 # --- VARIABLES TO REPLACE ---
 # BUCKET_NAME: A globally unique name for your storage bucket (e.g., dynamo-llama3-assets-12345)
