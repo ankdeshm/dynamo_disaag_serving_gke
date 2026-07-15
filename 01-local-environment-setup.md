@@ -6,9 +6,9 @@ Before deploying the GKE cluster, you need to install several tools on your loca
 
 ### 2. [Install Terraform](https://developer.hashicorp.com/terraform)
 
-### 3. [Install Packer](https://developer.hashicorp.com/packer/install)
+### 3. [Install Packer](https://developer.hashicorp.com/packer/install#linux)
 
-### 4. [Install Go](https://go.dev/doc/install)
+### 4. [Install Go - Linux Version](https://go.dev/doc/install#install)
 
 ### 5. Set up a GOPATH 
 Set up a GOPATH by running the following command:
