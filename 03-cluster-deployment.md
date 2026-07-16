@@ -21,11 +21,11 @@ Because we are using a blueprint customized for the Disaggregated Worker Service
 ```bash
 
 # Download/copy the custom YAML into the examples directory
-wget https://raw.githubusercontent.com/ankdeshm/dynamo_disaag_serving_gke/main/gke-a3-ultragpu-dynamo.yaml -O examples/gke-a3-ultragpu/gke-a3-ultragpu-dynamo.yaml
+wget https://raw.githubusercontent.com/ankdeshm/dynamo_disaag_serving_gke/main/gke-a3-ultragpu-dynamo.yaml -O examples/gke-a3-ultragpu/gke-a3-ultragpu-dynamo-spot.yaml
 
 # Inspect the file content
 # It is recommended to quickly inspect the file to ensure the configurations are defined.
-cat examples/gke-a3-ultragpu/gke-a3-ultragpu-dynamo.yaml
+cat examples/gke-a3-ultragpu/gke-a3-ultragpu-dynamo-spot.yaml
 ```
 
 ### 3\. Deploy the A3 Ultra Spot Instance Blueprint
@@ -53,8 +53,7 @@ You will need to replace the placeholder variables with your specific configurat
   --vars "system_node_pool_disk_size_gb=200" \
   --vars "a3ultra_node_pool_disk_size_gb=200" \
   --vars "accelerator_type=nvidia-h200-141gb" \
-  --vars "enable_flex_start=false" \
-  --vars "enable_spot=true"
+  --vars "spot=true"
 ```
 
 > **Note:** Deployment typically takes **15–20 minutes** as the underlying Google Cloud resources, including the specialized A3 Ultra GKE cluster with spot instances, are provisioned. The command will output status updates and logs throughout the process.
