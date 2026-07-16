@@ -21,39 +21,25 @@ Because we are using a blueprint customized for the Disaggregated Worker Service
 ```bash
 
 # Download/copy the custom YAML into the examples directory
-wget https://raw.githubusercontent.com/ankdeshm/dynamo_disaag_serving_gke/main/gke-a3-ultragpu-dynamo.yaml -O examples/gke-a3-ultragpu/gke-a3-ultragpu-dynamo-spot.yaml
+wget https://raw.githubusercontent.com/ankdeshm/dynamo_disaag_serving_gke/main/gke-a3-ultragpu-dynamo-spot.yaml -O examples/gke-a3-ultragpu/gke-a3-ultragpu-dynamo-spot.yaml
+
+wget https://raw.githubusercontent.com/ankdeshm/dynamo_disaag_serving_gke/main/gke-a3-ultragpu-deployment-spot.yaml -O examples/gke-a3-ultragpu/gke-a3-ultragpu-deployment-spot.yaml
 
 # Inspect the file content
 # It is recommended to quickly inspect the file to ensure the configurations are defined.
 cat examples/gke-a3-ultragpu/gke-a3-ultragpu-dynamo-spot.yaml
+
+cat examples/gke-a3-ultragpu/gke-a3-ultragpu-deployment-spot.yaml
 ```
 
 ### 3\. Deploy the A3 Ultra Spot Instance Blueprint
 
-Now, run the deployment command. The Cluster Toolkit will use the custom YAML you just placed to provision the GKE cluster with spot instances. We will pass all required environment-specific values as variables (`--vars`).
-
-You will need to replace the placeholder variables with your specific configuration values.
+Now, run the deployment command. The Cluster Toolkit will use the custom YAML you just placed to provision the GKE cluster with spot instances. 
 
 ```bash
-# --- VARIABLES TO REPLACE ---
-# BUCKET_NAME: The bucket you created in Phase 2 (for Terraform state)
-# CLUSTER_NAME: A name for your GKE cluster (e.g., dynamo-a3u-cluster)
-# PROJECT_ID: Your Google Cloud Project ID
-# COMPUTE_REGION: The region where your A3 Ultra node quota is available (e.g., europe-west4)
-# COMPUTE_ZONE: The specific zone within that region (e.g., europe-west4-a)
-# ----------------------------
-
-./gcluster deploy \
-  examples/gke-a3-ultragpu/gke-a3-ultragpu-dynamo.yaml \
-  --backend-config "bucket=BUCKET_NAME" \
-  --vars "deployment_name=CLUSTER_NAME" \
-  --vars "project_id=PROJECT_ID" \
-  --vars "region=COMPUTE_REGION" \
-  --vars "zone=COMPUTE_ZONE" \
-  --vars "system_node_pool_disk_size_gb=200" \
-  --vars "a3ultra_node_pool_disk_size_gb=200" \
-  --vars "accelerator_type=nvidia-h200-141gb" \
-  --vars "spot=true"
+./gcluster deploy -d \
+examples/gke-a3-ultragpu/gke-a3-ultragpu-deployment-spot.yaml \
+examples/gke-a3-ultragpu/gke-a3-ultragpu-dynamo-spot.yaml
 ```
 
 > **Note:** Deployment typically takes **15–20 minutes** as the underlying Google Cloud resources, including the specialized A3 Ultra GKE cluster with spot instances, are provisioned. The command will output status updates and logs throughout the process.
