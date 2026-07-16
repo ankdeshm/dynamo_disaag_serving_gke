@@ -5,14 +5,24 @@ This phase configures your Google Cloud project, creates necessary storage bucke
 
 You will need to replace the placeholder variables (e.g., `PROJECT_ID`, `BUCKET_NAME`, etc.) with your actual values.
 
-### 1\. Configure Project and Storage
+### 1\. Set environment variables
+export PROJECT_ID=$(gcloud config get-value project)
+export PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format="value(projectNumber)")
+gcloud config set project PROJECT_ID
+
+export BUCKET_NAME=ankita-a3u-dynamo-ue7
+export BUCKET_LOCATION=us-east7
+export REPOSITORY=ank-dynamo-repo-ue7
+
+
+### 2\. Configure Project and Storage
 
 Set your active project and create the Cloud Storage buckets. These buckets are essential for Terraform backend state management and for storing the LLM model weights and other assets.
 
 ```bash
 # 1. Set your Project ID
 # Replace PROJECT_ID with your actual Google Cloud Project ID
-gcloud config set project PROJECT_ID
+gcloud config set project $PROJECT_ID
 
 # --- VARIABLES TO REPLACE ---
 # BUCKET_NAME: A globally unique name for your storage bucket (e.g., dynamo-llama3-assets-12345)
@@ -21,25 +31,25 @@ gcloud config set project PROJECT_ID
 # ----------------------------
 
 # 2. Create the bucket
-gcloud storage buckets create gs://BUCKET_NAME \
-  --location=BUCKET_LOCATION \
+gcloud storage buckets create gs://${BUCKET_NAME} \
+  --location=${BUCKET_LOCATION} \
   --no-public-access-prevention --uniform-bucket-level-access
 
 # 3. Configure Workload Identity Access Control
 # This grants the default Kubernetes service account (used by the cluster)
 # necessary permissions to read and write objects in the bucket.
-gcloud storage buckets add-iam-policy-binding gs://BUCKET_NAME \
+gcloud storage buckets add-iam-policy-binding gs://${BUCKET_NAME} \
   --role=roles/storage.objectAdmin \
-  --member=principal://iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/PROJECT_ID.svc.id.goog/subject/ns/default/sa/default \
+  --member=principal://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${PROJECT_ID}.svc.id.goog/subject/ns/default/sa/default \
   --condition=None
 
-gcloud storage buckets add-iam-policy-binding gs://BUCKET_NAME \
+gcloud storage buckets add-iam-policy-binding gs://${BUCKET_NAME} \
   --role=roles/storage.legacyBucketReader \
-  --member=principal://iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/PROJECT_ID.svc.id.goog/subject/ns/default/sa/default \
+  --member=principal://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${PROJECT_ID}.svc.id.goog/subject/ns/default/sa/default \
   --condition=None
 ```
 
-### 2\. Set up Artifact Registry
+### 3\. Set up Artifact Registry
 
 Set up a Docker repository in **Artifact Registry** for storing any custom Docker images.
 
@@ -47,9 +57,9 @@ Set up a Docker repository in **Artifact Registry** for storing any custom Docke
 # 1. Create the Artifact Registry Docker repository
 # Replace REPOSITORY with your desired repo name (e.g., dynamo-repo)
 # Replace BUCKET_LOCATION with the region (e.g., europe-west4)
-gcloud artifacts repositories create REPOSITORY \
+gcloud artifacts repositories create ${REPOSITORY} \
     --repository-format=docker \
-    --location=BUCKET_LOCATION \
+    --location=${BUCKET_LOCATION} \
     --description="Dynamo Disaggregated Serving Docker Images"
 
 # 2. Authenticate application-default credentials
