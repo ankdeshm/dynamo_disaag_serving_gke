@@ -1,0 +1,181 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llama3-standard
+  namespace: dynamo-cloud
+  labels:
+    app: llama3-standard
+spec:
+  replicas: 4                          # 4 Replicas x TP=1 = 4 GPUs Total
+  selector:
+    matchLabels:
+      app: llama3-standard
+  template:
+    metadata:
+      labels:
+        app: llama3-standard
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-accelerator: "nvidia-b200"
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: cloud.google.com/gke-spot
+                operator: In
+                values: ["true"]
+      tolerations:
+        - key: "nvidia.com/gpu"
+          operator: "Equal"
+          value: "present"
+          effect: "NoSchedule"
+        - key: "cloud.google.com/gke-preemptible"
+          operator: "Equal"
+          value: "true"
+          effect: "NoExecute"
+          tolerationSeconds: 30
+          
+      imagePullSecrets:
+        - name: nvcr-secret
+        
+      volumes:
+        - name: gib
+          emptyDir: {}
+        - name: local-ssd
+          hostPath:
+            path: /mnt/stateful_partition/kube-ephemeral-ssd
+        - name: shared-memory
+          emptyDir:
+            medium: "Memory"
+            sizeLimit: 200Gi
+
+      initContainers:
+      - name: nccl-plugin-installer
+        image: us-docker.pkg.dev/gce-ai-infra/gpudirect-gib/nccl-plugin-gib:v1.1.2
+        imagePullPolicy: Always
+        args:
+        - |
+          set -ex
+          /scripts/container_entry.sh install --install-nccl
+          cp -R /var/lib/gib/lib64/. /target/usr/local/gib/lib64
+          cp -R /var/lib/gib/. /target/usr/local/gib
+        command: ["/bin/sh", "-c"]
+        volumeMounts:
+        - mountPath: /target/usr/local/gib
+          name: gib
+
+      - name: model-downloader
+        image: python:3.10-slim
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          MODEL_ID="neuralmagic/Meta-Llama-3.1-70B-Instruct-FP8"
+          LOCAL_DIR="/ssd/neuralmagic/Meta-Llama-3.1-70B-Instruct-FP8"
+          if [ -f "${LOCAL_DIR}/config.json" ]; then exit 0; fi
+          pip install huggingface_hub
+          python3 -c "import os; from huggingface_hub import snapshot_download; snapshot_download(repo_id='${MODEL_ID}', local_dir='${LOCAL_DIR}', token=os.environ['HF_TOKEN'])"
+        env:
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hf-secret
+              key: hf_api_token
+        volumeMounts:
+        - name: local-ssd
+          mountPath: /ssd
+
+      containers:
+        - name: vllm-server
+          image: "nvcr.io/nvidia/ai-dynamo/vllm-runtime:1.2.1" 
+          securityContext:
+            privileged: true
+          env:
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-secret
+                  key: hf_api_token
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: "all"
+            - name: NVIDIA_DRIVER_CAPABILITIES
+              value: "compute,utility"
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              export NCCL_PLUGIN_PATH=/usr/local/gib/lib64
+              export LD_LIBRARY_PATH=/usr/local/gib/lib64:/usr/local/nvidia/lib64:$LD_LIBRARY_PATH
+              export NCCL_INIT_SCRIPT="/usr/local/gib/scripts/set_nccl_env.sh"
+              
+              if [[ -n "${NCCL_INIT_SCRIPT}" ]]; then source ${NCCL_INIT_SCRIPT}; /sbin/ldconfig; fi
+              export VLLM_NCCL_SO_PATH=/usr/local/gib/lib64/libnccl.so.2
+              export NCCL_DEBUG=INFO
+
+              # Dynamic GPU Fencing for 4x TP1 on GPUs 0, 1, 2, 3
+              mkdir -p /ssd/locks
+              exec 200>/ssd/locks/gpu_standard_assign.lock
+              flock -x 200
+              
+              if [ ! -f /ssd/locks/gpu_standard_counter_4tp1 ]; then
+                  echo "0" > /ssd/locks/gpu_standard_counter_4tp1
+              fi
+              MY_GPU=$(cat /ssd/locks/gpu_standard_counter_4tp1)
+              
+              export CUDA_VISIBLE_DEVICES="$MY_GPU"
+              
+              NEXT_GPU=$((MY_GPU + 1))
+              if [ "$NEXT_GPU" -gt 3 ]; then
+                  NEXT_GPU=0
+              fi
+              echo "$NEXT_GPU" > /ssd/locks/gpu_standard_counter_4tp1
+              
+              flock -u 200
+              echo "Standard Worker Assigned CUDA_VISIBLE_DEVICES: $CUDA_VISIBLE_DEVICES"
+
+              python3 -m vllm.entrypoints.openai.api_server \
+                --model /ssd/neuralmagic/Meta-Llama-3.1-70B-Instruct-FP8 \
+                --tokenizer neuralmagic/Meta-Llama-3.1-70B-Instruct-FP8 \
+                --served-model-name neuralmagic/Meta-Llama-3.1-70B-Instruct-FP8 \
+                --tensor-parallel-size 1 \
+                --kv-cache-dtype fp8 \
+                --block-size 128 \
+                --trust-remote-code \
+                --download-dir /ssd/neuralmagic/Meta-Llama-3.1-70B-Instruct-FP8 \
+                --disable-log-stats \
+                --max-model-len 32768 \
+                --gpu-memory-utilization 0.90 \
+                --port 8000
+
+          resources:
+            limits:
+              cpu: "16"
+              memory: "150Gi"
+              nvidia.com/gpu: 1
+            requests:
+              cpu: "16"
+              memory: "150Gi"
+              nvidia.com/gpu: 1
+          
+          volumeMounts:
+            - name: gib
+              mountPath: /usr/local/gib
+            - name: local-ssd
+              mountPath: /ssd
+            - name: shared-memory
+              mountPath: /dev/shm
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llama3-standard-service
+  namespace: dynamo-cloud
+spec:
+  selector:
+    app: llama3-standard
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+  type: ClusterIP
