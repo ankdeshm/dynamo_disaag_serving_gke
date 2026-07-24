@@ -162,12 +162,8 @@ To evaluate the impact of Disaggregated Serving on a 4-GPU cluster footprint, we
 
 ### 1. Concurrency 16 Comparison
 
-| Metric / Statistic | Dynamo Disaggregated<br>
-
-<br>*(3 Prefill TP1 : 1 Decode TP1)* | Standard vLLM<br>
-
-<br>*(4 Replicas TP1)* | Winner / Key Delta |
-| --- | --- | --- | --- |
+| Metric / Statistic | Dynamo Disaggregated<br>*(3 Prefill TP1 : 1 Decode TP1)* | Standard vLLM<br>*(4 Replicas TP1)* | Winner / Key Delta |
+| :--- | :--- | :--- | :--- |
 | **Mean Time To First Token (TTFT)** | **1,342.80 ms** | **1,894.44 ms** | ⚡ **Dynamo** (551.64 ms / **29.1% Faster**) |
 | **Mean Time To Second Token** | **229.42 ms** | **388.52 ms** | ⚡ **Dynamo** (159.10 ms / **40.9% Faster**) |
 | **Total Output Token Throughput** | **414.88 tok/s** | **446.01 tok/s** | **Standard vLLM** (+7.5%) |
@@ -180,12 +176,8 @@ To evaluate the impact of Disaggregated Serving on a 4-GPU cluster footprint, we
 
 ### 2. Concurrency 32 Comparison
 
-| Metric / Statistic | Dynamo Disaggregated<br>
-
-<br>*(3 Prefill TP1 : 1 Decode TP1)* | Standard vLLM<br>
-
-<br>*(4 Replicas TP1)* | Winner / Key Delta |
-| --- | --- | --- | --- |
+| Metric / Statistic | Dynamo Disaggregated<br>*(3 Prefill TP1 : 1 Decode TP1)* | Standard vLLM<br>*(4 Replicas TP1)* | Winner / Key Delta |
+| :--- | :--- | :--- | :--- |
 | **Mean Time To First Token (TTFT)** | **3,411.82 ms** | **2,562.52 ms** | **Standard vLLM** (849.30 ms / **24.9% Faster**) |
 | **Mean Time To Second Token** | **403.73 ms** | **449.03 ms** | ⚡ **Dynamo** (45.30 ms / **10.1% Faster**) |
 | **Total Output Token Throughput** | **499.24 tok/s** | **560.56 tok/s** | **Standard vLLM** (+12.3%) |
