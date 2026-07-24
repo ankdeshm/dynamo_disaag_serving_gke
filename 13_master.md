@@ -223,6 +223,18 @@ All benchmarks were executed using NVIDIA `genai-perf` under identical load prof
 
 
 
+## 📈 3. Performance Tradeoff Visualizations
+
+The charts below plot **Hardware Efficiency (Tokens/sec/GPU)** against **User SLA (Tokens/sec/User)**. The blue shaded area represents the target production SLA zone (30–60 tokens/sec/user).
+
+### A. Long Context (8,000 ISL)
+Notice how at Concurrency 32, Dynamo keeps the user streaming speed inside the target SLA zone (~40 tok/s/user), while Standard vLLM drops to the edge of failure (~31 tok/s/user) due to prefill preemption.
+![8k ISL Comparison](8k_isl_comparison.png)
+
+### B. Medium Context (3,000 ISL)
+For shorter contexts, Standard vLLM's ability to utilize all 8 GPUs for prefill and decode delivers superior hardware throughput without violating the streaming SLA.
+![3k ISL Comparison](3k_isl_comparison.png)
+
 ---
 
 ## 💡 7. Final Sizing & Production Recommendations
@@ -245,5 +257,6 @@ Unconstrained Batch Offline Jobs      --> Standard Monolithic vLLM: 2 Replicas (
                                           Maximizes raw unconstrained completion throughput
                                           when user latency SLAs are not strict.
 ========================================================================================
+
 
 ```
