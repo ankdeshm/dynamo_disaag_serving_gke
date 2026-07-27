@@ -173,16 +173,18 @@ This table explicitly evaluates whether the multi-node Dynamo disaggregated depl
 
 ---
 
+
 ## 💡 6. Technical Insights & Architectural Analysis
 
-### 1. `TP=4` Prefill Solved the Long-Context Bottleneck
+### 1. `TP=4` Prefill Scaling
 
-In earlier single-node benchmarks using single-GPU (`TP=1`) prefill workers, 8,000-token prompts saturated the prefill queue, capping cluster output at **94 tokens/sec**. By upgrading to **`3x TP4` prefill workers (12 GPUs)** on 26,000-token prompts (3.25x larger), total output throughput jumped to **833.54 tokens/sec**—a **$8.8\times$ performance increase** made possible by tensor-parallel attention math.
+In single-node tests using `TP=1` prefill workers, an 8k prompt length saturated the prefill queue and capped total throughput at 94 tokens/sec. Allocating 12 GPUs across 3 prefill workers at `TP=4` allowed the system to ingest 26,000-token prompts while scaling total output throughput to 833.54 tokens/sec.
 
-### 2. Operational Sweet Spot at Concurrency 32
+### 2. Concurrency 16 vs. Concurrency 32 Trade-off
 
-While Concurrency 16 delivered faster per-user speeds (68.73 tok/s), it slightly over-delivered on streaming speed at the expense of GPU efficiency. Increasing to **Concurrency 32** brought output speed to **46.71 tok/s/user**—placing it directly in the center of the **30–60 tok/s human perceptual SLA**—while unlocking **21.1% higher total hardware throughput (833.54 tok/s)**.
+* **Concurrency 16:** Produced 68.73 tokens/sec per user. This exceeds the 30–60 tokens/sec SLA requirement, but leaves some hardware capacity unused.
+* **Concurrency 32:** Reduced per-user speed to 46.71 tokens/sec, placing it directly inside the requested 30–60 tokens/sec SLA target. In exchange, total output throughput increased by 21.1% (from 688.28 to 833.54 tokens/sec).
 
-### 3. Isolated Decode Generation
+### 3. Decode Worker Isolation
 
-Because the `TP=4` Decode worker runs independently on Node 2, incoming 26,000-token prompt prefills on Node 1 do not preempt active token generation. This structural isolation maintained an Inter-Token Latency of **15.38ms to 23.79ms**, delivering smooth, stutter-free streaming to all active users.
+Separating the prefill workers on Node 1 from the decode worker on Node 2 ensured that incoming 26,000-token prefills did not pause token generation on active requests. As a result, Inter-Token Latency remained at 15.38 ms for Concurrency 16 and 23.79 ms for Concurrency 32.
