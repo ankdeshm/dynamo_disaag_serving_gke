@@ -1,0 +1,336 @@
+apiVersion: nvidia.com/v1alpha1
+kind: DynamoGraphDeployment
+metadata:
+  name: deepseek-r1-disagg
+  namespace: dynamo-cloud
+spec:
+  services:
+    Frontend:
+      envFromSecret: hf-secret
+      componentType: frontend
+      replicas: 1
+      resources: 
+        requests:
+          cpu: "4"
+          memory: "16Gi"
+        limits:
+          cpu: "4"
+          memory: "16Gi"
+      extraPodSpec:
+        imagePullSecrets:
+          - name: nvcr-secret
+        initContainers:
+        - name: config-downloader
+          image: python:3.10-slim
+          command: ["/bin/bash", "-c"]
+          args:
+          - |
+            pip install huggingface_hub
+            python3 -c "import os; from huggingface_hub import snapshot_download; snapshot_download(repo_id='deepseek-ai/DeepSeek-R1', local_dir='/ssd/deepseek-ai/DeepSeek-R1', token=os.environ['HF_TOKEN'], allow_patterns=['*.json', '*.model', '*.txt'])"
+          env:
+          - name: HF_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: hf-secret
+                key: hf_api_token
+          volumeMounts:
+          - name: fake-ssd
+            mountPath: /ssd
+        volumes:
+        - name: fake-ssd
+          emptyDir: {}
+        mainContainer:
+          image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:1.2.1
+          command: ["python3"]
+          args: ["-m", "dynamo.frontend"]
+          env:
+          - name: HF_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: hf-secret
+                key: hf_api_token
+          volumeMounts:
+          - name: fake-ssd
+            mountPath: /ssd
+
+    # =========================================================================
+    # DECODE WORKER: 1 Replica on 8 GPUs (TP=8) - 8 GPUs Total (Node 1)
+    # =========================================================================
+    VllmDecodeWorker:
+      envFromSecret: hf-secret
+      componentType: worker
+      replicas: 1
+      sharedMemory:
+        size: 500Gi
+      resources:
+        requests:
+          cpu: "80"
+          memory: "800Gi"
+          gpu: "8"
+        limits:
+          cpu: "80"
+          memory: "800Gi"
+          gpu: "8"
+      extraPodSpec:
+        imagePullSecrets:
+          - name: nvcr-secret
+        nodeSelector:
+          cloud.google.com/gke-accelerator: "nvidia-b200"
+        affinity:
+          nodeAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                - key: cloud.google.com/gke-spot
+                  operator: In
+                  values: ["true"]
+        tolerations:
+          - key: "nvidia.com/gpu"
+            operator: "Equal"
+            value: "present"
+            effect: "NoSchedule"
+          - key: "cloud.google.com/gke-preemptible"
+            operator: "Equal"
+            value: "true"
+            effect: "NoExecute"
+            tolerationSeconds: 30
+        
+        initContainers:
+        - name: nccl-plugin-installer
+          image: us-docker.pkg.dev/gce-ai-infra/gpudirect-gib/nccl-plugin-gib:v1.1.2
+          imagePullPolicy: Always
+          args:
+          - |
+            set -ex
+            /scripts/container_entry.sh install --install-nccl
+            cp -R /var/lib/gib/lib64/. /target/usr/local/gib/lib64
+            cp -R /var/lib/gib/. /target/usr/local/gib
+          command: ["/bin/sh", "-c"]
+          volumeMounts:
+          - mountPath: /target/usr/local/gib
+            name: gib
+
+        - name: model-downloader
+          image: python:3.10-slim
+          command: ["/bin/bash", "-c"]
+          args:
+          - |
+            MODEL_ID="deepseek-ai/DeepSeek-R1"
+            LOCAL_DIR="/ssd/deepseek-ai/DeepSeek-R1"
+            if [ -f "${LOCAL_DIR}/config.json" ]; then exit 0; fi
+            pip install huggingface_hub
+            python3 -c "import os; from huggingface_hub import snapshot_download; snapshot_download(repo_id='${MODEL_ID}', local_dir='${LOCAL_DIR}', token=os.environ['HF_TOKEN'])"
+          env:
+          - name: HF_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: hf-secret
+                key: hf_api_token
+          volumeMounts:
+          - name: local-ssd
+            mountPath: /ssd
+
+        volumes:
+        - name: gib
+          emptyDir: {}
+        - name: local-ssd
+          hostPath:
+            path: /mnt/stateful_partition/kube-ephemeral-ssd
+
+        mainContainer:
+          image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:1.2.1
+          env:
+          - name: HF_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: hf-secret
+                key: hf_api_token
+          - name: UCX_TLS
+            value: "all"
+          - name: VLLM_USE_FLASHINFER_MOE_FP8
+            value: "1"
+          securityContext:
+            privileged: true
+          workingDir: /workspace/examples/backends/vllm
+          volumeMounts:
+            - name: gib
+              mountPath: /usr/local/gib
+            - name: local-ssd
+              mountPath: /ssd
+          command: ["/bin/bash", "-c"]
+          args:
+          - |
+            export NCCL_PLUGIN_PATH=/usr/local/gib/lib64
+            export LD_LIBRARY_PATH=/usr/local/gib/lib64:/usr/local/nvidia/lib64:$LD_LIBRARY_PATH
+            export NCCL_INIT_SCRIPT="/usr/local/gib/scripts/set_nccl_env.sh"
+            
+            if [[ -n "${NCCL_INIT_SCRIPT}" ]]; then source ${NCCL_INIT_SCRIPT}; /sbin/ldconfig; fi
+
+            export VLLM_NCCL_SO_PATH=/usr/local/gib/lib64/libnccl.so.2
+            export NCCL_DEBUG=INFO
+            export NCCL_CROSS_NIC=1
+            export NCCL_ALGO=Ring,Tree
+            export UCX_TLS=all
+
+            # Assign all 8 GPUs on the node to this worker
+            export CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7"
+            echo "Assigned CUDA_VISIBLE_DEVICES: $CUDA_VISIBLE_DEVICES"
+
+            python3 -m dynamo.vllm \
+              --model /ssd/deepseek-ai/DeepSeek-R1 \
+              --tokenizer deepseek-ai/DeepSeek-R1 \
+              --served-model-name deepseek-ai/DeepSeek-R1 \
+              --tensor-parallel-size 8 \
+              --enable-expert-parallel \
+              --gpu-memory-utilization 0.95 \
+              --max-model-len 32768 \
+              --max-num-batched-tokens 32768 \
+              --block-size 128 \
+              --no-enable-prefix-caching \
+              --trust-remote-code \
+              --download-dir /ssd/deepseek-ai/DeepSeek-R1 \
+              --disable-log-stats \
+              --disaggregation-mode decode
+
+    # =========================================================================
+    # PREFILL WORKERS: 1 Replica on 8 GPUs (TP=8) - 8 GPUs Total (Node 2)
+    # =========================================================================
+    VllmPrefillWorker:
+      envFromSecret: hf-secret
+      componentType: worker
+      replicas: 1                      # 1 prefill worker x 8 GPUs = 8 GPUs
+      sharedMemory:
+        size: 500Gi
+      resources:
+        requests:
+          cpu: "80"
+          memory: "800Gi"
+          gpu: "8"                      # TP=8 required for model VRAM size
+        limits:
+          cpu: "80"
+          memory: "800Gi"
+          gpu: "8"
+      extraPodSpec:
+        imagePullSecrets:
+          - name: nvcr-secret
+        nodeSelector:
+          cloud.google.com/gke-accelerator: "nvidia-b200"
+        affinity:
+          nodeAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                - key: cloud.google.com/gke-spot
+                  operator: In
+                  values: ["true"]
+        tolerations:
+          - key: "nvidia.com/gpu"
+            operator: "Equal"
+            value: "present"
+            effect: "NoSchedule"
+          - key: "cloud.google.com/gke-preemptible"
+            operator: "Equal"
+            value: "true"
+            effect: "NoExecute"
+            tolerationSeconds: 30
+        
+        initContainers:
+        - name: nccl-plugin-installer
+          image: us-docker.pkg.dev/gce-ai-infra/gpudirect-gib/nccl-plugin-gib:v1.1.2
+          imagePullPolicy: Always
+          args:
+          - |
+            set -ex
+            /scripts/container_entry.sh install --install-nccl
+            cp -R /var/lib/gib/lib64/. /target/usr/local/gib/lib64
+            cp -R /var/lib/gib/. /target/usr/local/gib
+          command: ["/bin/sh", "-c"]
+          volumeMounts:
+          - mountPath: /target/usr/local/gib
+            name: gib
+
+        - name: model-downloader
+          image: python:3.10-slim
+          command: ["/bin/bash", "-c"]
+          args:
+          - |
+            MODEL_ID="deepseek-ai/DeepSeek-R1"
+            LOCAL_DIR="/ssd/deepseek-ai/DeepSeek-R1"
+
+            if [ -f "${LOCAL_DIR}/config.json" ]; then exit 0; fi
+
+            pip install huggingface_hub
+            python3 -c "import os; from huggingface_hub import snapshot_download; snapshot_download(repo_id='${MODEL_ID}', local_dir='${LOCAL_DIR}', token=os.environ['HF_TOKEN'])"
+          env:
+          - name: HF_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: hf-secret
+                key: hf_api_token
+          volumeMounts:
+          - name: local-ssd
+            mountPath: /ssd
+
+        volumes:
+        - name: gib
+          emptyDir: {}
+        - name: local-ssd
+          hostPath:
+            path: /mnt/stateful_partition/kube-ephemeral-ssd
+
+        mainContainer:
+          image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:1.2.1
+          env:
+          - name: HF_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: hf-secret
+                key: hf_api_token
+          - name: UCX_TLS
+            value: "all"
+          - name: VLLM_USE_FLASHINFER_MOE_FP8
+            value: "1"
+          securityContext:
+            privileged: true
+          workingDir: /workspace/examples/backends/vllm
+          volumeMounts:
+            - name: gib
+              mountPath: /usr/local/gib
+            - name: local-ssd
+              mountPath: /ssd
+          command: ["/bin/bash", "-c"]
+          args:
+          - |
+            export NCCL_PLUGIN_PATH=/usr/local/gib/lib64
+            export LD_LIBRARY_PATH=/usr/local/gib/lib64:/usr/local/nvidia/lib64:$LD_LIBRARY_PATH
+            export NCCL_INIT_SCRIPT="/usr/local/gib/scripts/set_nccl_env.sh"
+            
+            if [[ -n "${NCCL_INIT_SCRIPT}" ]]; then source ${NCCL_INIT_SCRIPT}; /sbin/ldconfig; fi
+            export VLLM_NCCL_SO_PATH=/usr/local/gib/lib64/libnccl.so.2
+            export NCCL_DEBUG=INFO
+            export NCCL_CROSS_NIC=1
+            export NCCL_ALGO=Ring,Tree
+            export UCX_TLS=all
+
+            # Assign all 8 GPUs on the node to this worker
+            export CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7"
+            echo "Assigned CUDA_VISIBLE_DEVICES: $CUDA_VISIBLE_DEVICES"
+
+            python3 -m dynamo.vllm \
+              --model /ssd/deepseek-ai/DeepSeek-R1 \
+              --tokenizer deepseek-ai/DeepSeek-R1 \
+              --served-model-name deepseek-ai/DeepSeek-R1 \
+              --tensor-parallel-size 8 \
+              --enable-expert-parallel \
+              --gpu-memory-utilization 0.95 \
+              --max-model-len 32768 \
+              --max-num-batched-tokens 32768 \
+              --block-size 128 \
+              --no-enable-prefix-caching \
+              --trust-remote-code \
+              --download-dir /ssd/deepseek-ai/DeepSeek-R1 \
+              --disable-log-stats \
+              --disaggregation-mode prefill \
+              --kv-transfer-config '{"kv_connector":"NixlConnector","kv_role":"kv_both"}'
