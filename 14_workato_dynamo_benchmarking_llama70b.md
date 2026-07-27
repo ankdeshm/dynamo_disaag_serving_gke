@@ -55,7 +55,7 @@ NODE 1 (8 GPUs)                                NODE 2 (8 GPUs)
 ### Step 1: Deploy the 16-GPU Dynamo Manifest
 
 ```bash
-kubectl apply -f workato_3xtp4p_1xtp4d_2nodes.yaml
+kubectl apply -f workato_llama3_dynamo_2nodes.yaml
 
 ```
 
