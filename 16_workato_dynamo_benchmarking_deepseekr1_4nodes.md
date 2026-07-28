@@ -62,10 +62,12 @@ You can see the system starts to reach its limit at **26k tokens with 32 users**
 
 ## 4. When to Scale to an 8-Node Cluster
 
-A 4-node cluster is perfect for moderate traffic (up to 16 users sending 26k prompts at once). But if the customer expects 32 or more users to regularly hit the system at the exact same time, we highly recommend moving to an **8-Node Cluster (64x B200 GPUs)**.
+While the 4-node setup successfully proves that the system can process 26,000-token prompts without failing, the wait times (Time To First Token) are likely too high for premium, production-grade applications. For advanced AI companies and enterprise customers, waiting 30 seconds for a response at 16 users—or 70 seconds at 32 users—is generally outside of strict production SLAs.
 
-Here is how an 8-node cluster would be configured, and what it improves:
+To deliver a truly responsive, low-latency experience for this heavy workload, the system needs more hardware. The recommended production architecture is an **8-Node Cluster (64x B200 GPUs)** configured as **6 nodes for reading prompts (Prefill)** and **2 nodes for generating text (Decode)**.
 
-* **Topology:** 6 nodes for reading prompts (Prefill), 2 nodes for generating text (Decode).
-* **Wait Times Get Shorter:** By doubling the prefill nodes from 3 to 6, prompt reading power doubles. The 70-second wait time we saw at 32 users will drop closer to 20-30 seconds.
-* **Output Speed is Protected:** A single Decode node can only hold about 40 large users in its GPU memory before it runs out of space. Adding a second Decode node doubles the memory capacity. This guarantees that even if 50+ users log on, the text generation speed will stay comfortably above the 30 tokens/second SLA.
+Here is exactly what an 8-node cluster improves for high-end production use cases:
+
+* **Slashing Wait Times (TTFT):** Prompt reading is the heaviest part of the DeepSeek-R1 workload. By doubling the prefill nodes from 3 to 6, the system gains massive computing power. This will drastically cut down the 30- to 70-second wait times, delivering the snappy, immediate responses that enterprise users expect—even when dozens of requests come in at once.
+* **Bulletproof Streaming Speeds:** A single Decode node gracefully handles up to 16 users, but at 32 users, we saw the speed dip below the 30 tokens/second target. Adding a second Decode node doubles the GPU memory available for text generation. This guarantees that even under heavy traffic spikes, every single user gets a smooth, fast stream of 40+ tokens per second.
+* **Real Production Headroom:** High-performance AI applications cannot afford memory traffic jams. The 8-node (6P:2D) setup gives the cluster the breathing room it needs to handle sudden spikes in concurrent users without degrading the experience for anyone.
